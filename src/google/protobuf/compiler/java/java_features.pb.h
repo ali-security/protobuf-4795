@@ -322,6 +322,13 @@ class PROTOC_EXPORT JavaFeatures_NestInFileClassFeature final : public ::google:
 PROTOC_EXPORT extern const ::google::protobuf::internal::ClassDataFull JavaFeatures_NestInFileClassFeature_class_data_;
 // -------------------------------------------------------------------
 
+namespace google {
+namespace protobuf {
+namespace internal {
+class InternalFeatureHelper;
+}  // namespace internal
+}  // namespace protobuf
+}  // namespace google
 class PROTOC_EXPORT JavaFeatures final : public ::google::protobuf::Message
 /* @@protoc_insertion_point(class_definition:pb.JavaFeatures) */ {
  public:
@@ -442,6 +449,8 @@ class PROTOC_EXPORT JavaFeatures final : public ::google::protobuf::Message
   template <typename T>
   friend ::absl::string_view(::google::protobuf::internal::GetAnyMessageName)();
   static ::absl::string_view FullMessageName() { return "pb.JavaFeatures"; }
+  friend class ::google::protobuf::internal::InternalFeatureHelper;
+  static constexpr char kFeatureDefaults[] = "\n%\030\204\007\"\003\312>\000*\033\010\001\020\002\030\002 \003(\0010\0028\002@\001\312>\010\010\001\020\001 \001(\003\n%\030\347\007\"\003\312>\000*\033\010\002\020\001\030\001 \002(\0010\0018\002@\001\312>\010\010\000\020\001 \001(\003\n%\030\350\007\"\023\010\001\020\001\030\001 \002(\0010\001\312>\004\010\000\020\001*\0138\002@\001\312>\004 \001(\003\n%\030\351\007\"\031\010\001\020\001\030\001 \002(\0010\0018\001@\002\312>\006\010\000\020\001(\001*\005\312>\002 \000 \346\007(\351\007";
 
  protected:
   explicit JavaFeatures(::google::protobuf::Arena* PROTOBUF_NULLABLE arena);

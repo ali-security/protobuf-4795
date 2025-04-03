@@ -30,6 +30,8 @@
 #include "absl/functional/any_invocable.h"
 #include "absl/log/absl_check.h"
 #include "absl/log/absl_log.h"
+#include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/escaping.h"
 #include "absl/strings/match.h"
@@ -37,6 +39,7 @@
 #include "absl/strings/str_format.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
+#include "google/protobuf/compiler/code_generator.h"
 #include "google/protobuf/compiler/cpp/enum.h"
 #include "google/protobuf/compiler/cpp/extension.h"
 #include "google/protobuf/compiler/cpp/field.h"
@@ -49,6 +52,7 @@
 #include "google/protobuf/compiler/cpp/tracker.h"
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/descriptor.pb.h"
+#include "google/protobuf/feature_resolver.h"
 #include "google/protobuf/io/printer.h"
 #include "google/protobuf/wire_format.h"
 #include "google/protobuf/wire_format_lite.h"
@@ -1793,11 +1797,44 @@ void MessageGenerator::GenerateAnyMethodDefinition(io::Printer* p) {
       )cc");
 }
 
+namespace {
+absl::optional<FeatureSetDefaults> GetFeatureSetDefaults(
+    const Descriptor& descriptor, const Options& options) {
+  if (descriptor.full_name() == "pb.CppFeatures") return absl::nullopt;
+  auto pool = descriptor.file()->pool();
+  const Descriptor* feature_set =
+      pool->FindMessageTypeByName("google.protobuf.FeatureSet");
+  if (feature_set == nullptr) return absl::nullopt;
+
+  std::vector<const FieldDescriptor*> extensions;
+  pool->FindAllExtensions(feature_set, &extensions);
+  absl::string_view extension_type_name = descriptor.full_name();
+  extensions.erase(
+      std::remove_if(extensions.begin(), extensions.end(),
+                     [extension_type_name](const FieldDescriptor* extension) {
+                       return extension->message_type()->full_name() !=
+                              extension_type_name;
+                     }),
+      extensions.end());
+
+  // This message is not the type of any FeatureSet extension.
+  if (extensions.empty()) return absl::nullopt;
+
+  absl::StatusOr<FeatureSetDefaults> defaults =
+      FeatureResolver::CompileDefaults(feature_set, extensions,
+                                       ProtocMinimumEdition(),
+                                       MaximumKnownEdition());
+  ABSL_CHECK_OK(defaults);
+  return *defaults;
+}
+}  // namespace
+
 void MessageGenerator::GenerateClassDefinition(io::Printer* p) {
   if (!ShouldGenerateClass(descriptor_, options_)) return;
 
   auto v = p->WithVars(ClassVars(descriptor_, options_));
   auto t = p->WithVars(MakeTrackerCalls(descriptor_, options_));
+  auto feature_set_defaults = GetFeatureSetDefaults(*descriptor_, options_);
   Formatter format(p);
 
   if (IsMapEntryMessage(descriptor_)) {
@@ -2157,8 +2194,30 @@ void MessageGenerator::GenerateClassDefinition(io::Printer* p) {
                   R"cc(
                     friend struct $split_default$;
                   )cc");
+        }},
+       {"declare_feature_internal_helper",
+        [&] {
+          if (!feature_set_defaults.has_value()) return;
+          NamespaceOpener ns(ProtobufNamespace(options_), p);
+          p->Emit(R"cc(
+            namespace internal {
+            class InternalFeatureHelper;
+            }  // namespace internal
+          )cc");
+        }},
+       {"feature_default_constant",
+        [&] {
+          if (!feature_set_defaults.has_value()) return;
+          p->Emit(
+              {{"defaults", EscapeTrigraphs(absl::CEscape(
+                                feature_set_defaults->SerializeAsString()))}},
+              R"cc(
+                friend class $pbi$::InternalFeatureHelper;
+                static constexpr char kFeatureDefaults[] = "$defaults$";
+              )cc");
         }}},
       R"cc(
+        $declare_feature_internal_helper$;
         class $dllexport_decl $$classname$ final : public $superclass$
         /* @@protoc_insertion_point(class_definition:$full_name$) */ {
          public:
@@ -2251,6 +2310,7 @@ void MessageGenerator::GenerateClassDefinition(io::Printer* p) {
           friend ::absl::string_view($pbi$::GetAnyMessageName)();
           static ::absl::string_view FullMessageName() { return "$full_name$"; }
           $decl_annotate$;
+          $feature_default_constant$;
 
           //~ TODO Make this private! Currently people are
           //~ deriving from protos to give access to this constructor,
