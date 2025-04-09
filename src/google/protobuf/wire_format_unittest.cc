@@ -15,6 +15,7 @@
 #include <cstdint>
 #include <string>
 
+#include "google/protobuf/test_util.h"
 #include "google/protobuf/unittest.pb.h"
 #include "google/protobuf/unittest_mset.pb.h"
 #include "google/protobuf/unittest_mset_wire_format.pb.h"

@@ -1357,6 +1357,7 @@ cc_library(
     textual_hdrs = ["test_util.inc"],
     visibility = ["//:__subpackages__"],
     deps = [
+        ":test_util",
         "//src/google/protobuf/io",
         "//src/google/protobuf/util:differencer",
         "@googletest//:gtest",

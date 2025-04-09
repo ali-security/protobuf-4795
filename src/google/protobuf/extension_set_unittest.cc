@@ -39,6 +39,13 @@
 #include "google/protobuf/wire_format_lite.h"
 
 
+#define UNITTEST ::proto2_unittest
+#define UNITTEST_IMPORT ::proto2_unittest_import
+// Must be included when the preprocessor symbols above are defined.
+#include "google/protobuf/test_util.inc"
+#undef UNITTEST
+#undef UNITTEST_IMPORT
+
 // Must be included last.
 #include "google/protobuf/port_def.inc"
 

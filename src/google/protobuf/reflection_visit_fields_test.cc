@@ -22,6 +22,13 @@
 #include "google/protobuf/wire_format.h"
 #include "google/protobuf/wire_format_lite.h"
 
+#define UNITTEST ::proto2_unittest
+#define UNITTEST_IMPORT ::proto2_unittest_import
+// Must be included when the preprocessor symbols above are defined.
+#include "google/protobuf/test_util.inc"
+#undef UNITTEST
+#undef UNITTEST_IMPORT
+
 namespace google {
 namespace protobuf {
 namespace internal {
