@@ -2265,7 +2265,8 @@ void MessageGenerator::GenerateClassDefinition(io::Printer* p) {
             *this = ::std::move(from);
           }
           $arena_dtor$;
-          const $pbi$::ClassData* $nonnull$ GetClassData() const PROTOBUF_FINAL;
+          PROTOBUF_ATTRIBUTE_WEAK const $pbi$::ClassData* $nonnull$
+          GetClassData() const PROTOBUF_FINAL;
           static void* $nonnull$ PlacementNew_(
               //~
               const void* $nonnull$, void* $nonnull$ mem,
