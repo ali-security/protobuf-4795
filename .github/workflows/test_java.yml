@@ -40,7 +40,7 @@ jobs:
             mv bazel.gpg /etc/apt/trusted.gpg.d/ &&
             echo 'deb [arch=amd64] https://storage.googleapis.com/bazel-apt stable jdk1.8' > /etc/apt/sources.list.d/bazel.list &&
             apt-get update && apt-get install -y bazel &&
-            bazel test ${{ matrix.targets }} --test_env=KOKORO_JAVA_VERSION
+            bazel test ${{ matrix.targets }} --test_env=KOKORO_JAVA_VERSION --enable_bzlmod
           "
 
   linkage-monitor:
