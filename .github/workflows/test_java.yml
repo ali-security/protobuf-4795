@@ -14,15 +14,15 @@ jobs:
         include:
           - name: OpenJDK 8
             version: '8'
-            image: eclipse-temurin:8-jdk
+            image: ljishen/bazel:latest-openjdk8
             targets: //java/... //java/internal:java_version
           - name: OpenJDK 11
             version: '11'
-            image: eclipse-temurin:11-jdk
+            image: ljishen/bazel:latest-openjdk11
             targets: //java/... //java/internal:java_version
           - name: OpenJDK 17
             version: '17'
-            image: eclipse-temurin:17-jdk
+            image: ljishen/bazel:latest-openjdk17
             targets: //java/... //java/internal:java_version
 
     name: Linux ${{ matrix.name }}
