@@ -14,15 +14,15 @@ jobs:
         include:
           - name: OpenJDK 8
             version: '8'
-            image: ljishen/bazel:latest-openjdk8
+            java_package: openjdk-8-jdk
             targets: //java/... //java/internal:java_version
           - name: OpenJDK 11
             version: '11'
-            image: ljishen/bazel:latest-openjdk11
+            java_package: openjdk-11-jdk
             targets: //java/... //java/internal:java_version
           - name: OpenJDK 17
             version: '17'
-            image: ljishen/bazel:latest-openjdk17
+            java_package: openjdk-17-jdk
             targets: //java/... //java/internal:java_version
 
     name: Linux ${{ matrix.name }}
@@ -30,10 +30,18 @@ jobs:
     steps:
       - name: Checkout pending changes
         uses: actions/checkout@v3
-      - name: Run tests
+
+      - name: Run tests in Docker with Bazel + OpenJDK
         run: |
-          docker run --rm -v ${{ github.workspace }}:/workspace -w /workspace ${{ matrix.image }} \
-          bash -c "bazel test ${{ matrix.targets }} --test_env=KOKORO_JAVA_VERSION"
+          docker run --rm -v ${{ github.workspace }}:/workspace -w /workspace ubuntu:22.04 bash -c "
+            apt-get update &&
+            apt-get install -y curl gnupg git ${{ matrix.java_package }} &&
+            curl -fsSL https://bazel.build/bazel-release.pub.gpg | gpg --dearmor > bazel.gpg &&
+            mv bazel.gpg /etc/apt/trusted.gpg.d/ &&
+            echo 'deb [arch=amd64] https://storage.googleapis.com/bazel-apt stable jdk1.8' > /etc/apt/sources.list.d/bazel.list &&
+            apt-get update && apt-get install -y bazel &&
+            bazel test ${{ matrix.targets }} --test_env=KOKORO_JAVA_VERSION
+          "
 
   linkage-monitor:
     name: Linux Linkage Monitor
@@ -43,8 +51,15 @@ jobs:
         uses: actions/checkout@v3
       - name: Run Linkage Monitor test
         run: |
-          docker run --rm -v ${{ github.workspace }}:/workspace -w /workspace eclipse-temurin:8-jdk \
-          bash -c "bazel test --test_output=all //java:linkage_monitor --spawn_strategy=standalone"
+          docker run --rm -v ${{ github.workspace }}:/workspace -w /workspace ubuntu:22.04 bash -c "
+            apt-get update &&
+            apt-get install -y openjdk-8-jdk curl gnupg git &&
+            curl -fsSL https://bazel.build/bazel-release.pub.gpg | gpg --dearmor > bazel.gpg &&
+            mv bazel.gpg /etc/apt/trusted.gpg.d/ &&
+            echo 'deb [arch=amd64] https://storage.googleapis.com/bazel-apt stable jdk1.8' > /etc/apt/sources.list.d/bazel.list &&
+            apt-get update && apt-get install -y bazel &&
+            bazel test --test_output=all //java:linkage_monitor --spawn_strategy=standalone
+          "
 
   protobuf-bom:
     name: Protobuf Maven BOM
@@ -52,22 +67,28 @@ jobs:
     steps:
     - name: Checkout pending changes
       uses: actions/checkout@v3
-    - name: Build protoc (assumes bazel installed on runner)
+
+    - name: Build protoc
       run: |
+        sudo apt-get update
+        sudo apt-get install -y bazel
         bazel build //:protoc
         cp bazel-bin/protoc protoc
         sudo rm -rf _build
-    - name: Install snapshot version locally (not using generated pom.xml)
+
+    - name: Install snapshot version locally
       run: |
+        sudo apt-get install -y maven
         mvn -e -B -Dhttps.protocols=TLSv1.2 install -Dmaven.test.skip=true
       working-directory: java
-    - name: Generate pom.xml files from the template
+
+    - name: Generate pom.xml files
       run: |
-        docker run --rm -v ${{ github.workspace }}:/workspace -w /workspace eclipse-temurin:11-jdk \
-        bash -c "bazel build //java/core:core_mvn-pom //java/util:util_mvn-pom"
+        bazel build //java/core:core_mvn-pom //java/util:util_mvn-pom
         cp bazel-bin/java/core/core_mvn-pom.xml .
         cp bazel-bin/java/util/util_mvn-pom.xml .
-    - name: Copy the generated pom.xml files to the local Maven repository
+
+    - name: Copy the generated pom.xml files
       run: |
         LOCAL_MAVEN_GROUP_DIR="${HOME}/.m2/repository/com/google/protobuf"
         VERSION=$(grep "<version>" core_mvn-pom.xml | sed "s/<version>\(.*\)<\/version>/\1/" | xargs)
@@ -75,9 +96,10 @@ jobs:
         mkdir -p ${LOCAL_MAVEN_GROUP_DIR}/protobuf-java-util/${VERSION}
         cp core_mvn-pom.xml ${LOCAL_MAVEN_GROUP_DIR}/protobuf-java/${VERSION}/protobuf-java-${VERSION}.pom
         cp util_mvn-pom.xml ${LOCAL_MAVEN_GROUP_DIR}/protobuf-java-util/${VERSION}/protobuf-java-util-${VERSION}.pom
+
     - name: Clean up
-      run: |
-        sudo rm -rf _build
+      run: sudo rm -rf _build
+
     - name: Validate Protobuf BOM
       uses: googleapis/java-cloud-bom/tests/validate-bom@fd56f04bb0bc581776a74031591f0b3bc5e7920a
       with:
